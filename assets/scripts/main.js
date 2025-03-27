@@ -70,25 +70,32 @@ class Vipborntoday {
 
     getVIPs() {
         return new Promise(resolve => {
-            // we create an SPARQL query to get some information about VIPs
-            let _query = `PREFIX dbpedia-owl:<http://dbpedia.org/ontology/>
-                    SELECT DISTINCT ?star ?abstract ?nameBirth ?birthDate ?photo ?url
-                    WHERE {
-                        ?film a dbpedia-owl:Film ;
-                        dbpedia-owl:starring ?star .
-                        ?star dbpedia-owl:abstract ?abstract .
-                        ?star dbpedia-owl:birthDate ?birthDate .
-                        ?star dbpedia-owl:thumbnail ?photo . 
-                        ?star dbpedia-owl:birthName ?nameBirth .
-                        ?star foaf:name ?name .
-                        ?star foaf:isPrimaryTopicOf ?url
-                        FILTER regex(?birthDate,"-${this.getDateSearch()}")
-                        FILTER langMatches(lang(?abstract),"en")
-                    }
-                    ORDER BY DESC(?birthDate)
-                    LIMIT 200`;
+            let sparqlQuery = `
+PREFIX dbpedia-owl: <http://dbpedia.org/ontology/>
+PREFIX foaf: <http://xmlns.com/foaf/0.1/>
+
+SELECT DISTINCT ?star ?abstract ?nameBirth ?birthDate ?photo ?url
+WHERE {
+    ?film a dbpedia-owl:Film ;
+          dbpedia-owl:starring ?star .
+    ?star dbpedia-owl:abstract ?abstract ;
+          dbpedia-owl:birthDate ?birthDate ;
+          dbpedia-owl:thumbnail ?photo ;
+          dbpedia-owl:birthName ?nameBirth ;
+          foaf:name ?name ;
+          foaf:isPrimaryTopicOf ?url .
+
+    FILTER (BOUND(?photo) && regex(str(?photo), "^https?://")) 
+    FILTER regex(str(?birthDate), "-${this.getDateSearch()}$")
+    FILTER langMatches(lang(?abstract), "en")
+    FILTER langMatches(lang(?name), "en")
+    FILTER langMatches(lang(?nameBirth), "en")
+}
+ORDER BY DESC(?birthDate)
+LIMIT 200`;
+
             // we ask DBpedia
-            fetch(`https://dbpedia.org/sparql?default-graph-uri=http%3A%2F%2Fdbpedia.org&query=${encodeURIComponent(_query)}&format=application%2Fsparql-results%2Bjson`)
+            fetch(`https://dbpedia.org/sparql?default-graph-uri=http%3A%2F%2Fdbpedia.org&query=${encodeURIComponent(sparqlQuery)}&format=application%2Fsparql-results%2Bjson`)
                 .then(response => {
                     if (!response.ok) throw new Error(`HTTP error ${response.status}`);
                     return response.json();
